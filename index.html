@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystical Time Flow</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #090912 0%, #040406 75%);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let lastSpawnTime = 0;
+        const spawnInterval = 5000;
+        let lightParticle = null;
+
+        const ambientParticles = [];
+        for (let i = 0; i < 50; i++) {
+            ambientParticles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 1.4 + 0.4,
+                speed: Math.random() * 0.25 + 0.08,
+                alpha: Math.random() * 0.35 + 0.08
+            });
+        }
+
+        function getTimeInfo(centerX) {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+
+            ctx.font = 'bold 52px "Courier New", monospace';
+            const textWidth = ctx.measureText(timeString).width;
+            const rightEdge = centerX + textWidth / 2;
+
+            return { timeString, textWidth, rightEdge };
+        }
+
+        class LightParticle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = canvas.width + 100;
+                this.y = canvas.height / 2;
+                this.speed = 3.2;
+                this.active = true;
+                this.state = 'traveling';
+                this.timeDisplayTimer = 0;
+                this.displayDuration = 50;
+                this.displayCenterX = canvas.width / 2;
+                this.trail = [];
+                this.lineStartX = canvas.width; // 右端。光が入ってから描画開始
+            }
+
+            update() {
+                if (!this.active) return;
+
+                this.x -= this.speed;
+
+                this.trail.push({ x: this.x, alpha: 1 });
+                if (this.trail.length > 22) this.trail.shift();
+
+                if (this.state === 'traveling') {
+                    const info = getTimeInfo(this.displayCenterX);
+                    if (this.x <= info.rightEdge && this.x + this.speed > info.rightEdge) {
+                        this.state = 'showingTime';
+                        this.timeDisplayTimer = this.displayDuration;
+                    }
+                } else if (this.state === 'showingTime') {
+                    this.timeDisplayTimer--;
+                    if (this.timeDisplayTimer <= 0) {
+                        this.state = 'traveling';
+                    }
+                }
+
+                if (this.x < -150) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                const cy = canvas.height / 2;
+
+                this.trail.forEach((t, i) => {
+                    const ratio = i / this.trail.length;
+                    const a = ratio * 0.28;
+                    ctx.fillStyle = `rgba(255, 190, 50, ${a})`;
+                    ctx.beginPath();
+                    ctx.arc(t.x, cy, 5.5 - ratio * 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                const gradient = ctx.createRadialGradient(this.x, cy, 0, this.x, cy, 55);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(0.18, 'rgba(255, 235, 90, 0.92)');
+                gradient.addColorStop(0.42, 'rgba(255, 170, 30, 0.45)');
+                gradient.addColorStop(0.72, 'rgba(255, 110, 10, 0.12)');
+                gradient.addColorStop(1, 'rgba(255, 80, 0, 0)');
+
+                ctx.save();
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, cy, 55, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(this.x, cy, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                if (this.state === 'showingTime' && this.timeDisplayTimer > 0) {
+                    const info = getTimeInfo(this.displayCenterX);
+                    const { timeString, textWidth } = info;
+
+                    const fadeInFrames = 12;
+                    const fadeOutFrames = 28;
+                    let alpha = 1;
+                    let blurExtra = 0;
+
+                    const elapsed = this.displayDuration - this.timeDisplayTimer;
+
+                    if (elapsed < fadeInFrames) {
+                        const t = elapsed / fadeInFrames;
+                        alpha = 1 - Math.pow(1 - t, 2);
+                    } else if (this.timeDisplayTimer < fadeOutFrames) {
+                        const t = this.timeDisplayTimer / fadeOutFrames;
+                        alpha = t * t * t * (t * (t * 6 - 15) + 10);
+                        blurExtra = Math.pow(1 - alpha, 1.4) * 28;
+                    }
+                    alpha = Math.max(0, Math.min(1, alpha));
+
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+
+                    ctx.font = 'bold 52px "Courier New", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    ctx.shadowColor = `rgba(255, 215, 90, ${0.82 * alpha})`;
+                    ctx.shadowBlur = 20 + blurExtra * 0.75;
+
+                    const plateGrad = ctx.createRadialGradient(this.displayCenterX, cy, 0, this.displayCenterX, cy, textWidth * 0.65);
+                    plateGrad.addColorStop(0, `rgba(18, 14, 28, ${0.42 * alpha})`);
+                    plateGrad.addColorStop(0.7, `rgba(12, 10, 20, ${0.15 * alpha})`);
+                    plateGrad.addColorStop(1, 'rgba(8, 8, 16, 0)');
+                    ctx.fillStyle = plateGrad;
+                    ctx.fillRect(this.displayCenterX - textWidth / 2 - 28, cy - 40, textWidth + 56, 80);
+
+                    const textGradient = ctx.createLinearGradient(this.displayCenterX, cy - 26, this.displayCenterX, cy + 26);
+                    textGradient.addColorStop(0, '#ffffff');
+                    textGradient.addColorStop(0.4, '#ffefb0');
+                    textGradient.addColorStop(1, '#ffc050');
+                    ctx.fillStyle = textGradient;
+                    ctx.fillText(timeString, this.displayCenterX, cy);
+
+                    if (blurExtra > 1) {
+                        ctx.shadowBlur = 8 + blurExtra;
+                        ctx.shadowColor = `rgba(255, 235, 160, ${0.32 * alpha})`;
+                        ctx.fillText(timeString, this.displayCenterX, cy);
+                    }
+
+                    ctx.restore();
+                }
+            }
+
+            drawAxisResidual() {
+                if (!this.active || this.x >= this.lineStartX) return; // 光が右端に入るまで描画しない
+
+                const cy = canvas.height / 2;
+                const endX = 0;
+                const lineEndX = Math.max(endX, this.x);
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+                ctx.lineWidth = 3.2;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.45)';
+                ctx.shadowBlur = 10;
+
+                ctx.beginPath();
+                ctx.moveTo(this.lineStartX, cy);
+                ctx.lineTo(lineEndX, cy);
+                ctx.stroke();
+
+                if (lineEndX <= endX + 30) {
+                    ctx.lineWidth = 2.8;
+                    ctx.beginPath();
+                    ctx.moveTo(endX + 26, cy - 13);
+                    ctx.lineTo(endX, cy);
+                    ctx.lineTo(endX + 26, cy + 13);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function drawAmbient() {
+            ambientParticles.forEach(p => {
+                p.y -= p.speed;
+                if (p.y < -8) {
+                    p.y = canvas.height + 8;
+                    p.x = Math.random() * canvas.width;
+                }
+                ctx.fillStyle = `rgba(170, 195, 255, ${p.alpha * 0.85})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawCurves() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cy = h / 2;
+            const endX = 0;
+            const rightX = w; // 右端に完全一致
+
+            ctx.save();
+
+            ctx.strokeStyle = 'rgba(255, 75, 75, 0.68)';
+            ctx.lineWidth = 2.1;
+            ctx.shadowColor = 'rgba(255, 50, 50, 0.4)';
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.moveTo(endX, cy);
+            ctx.bezierCurveTo(w * 0.25, cy - 6, w * 0.52, cy - 48, rightX, h * 0.11);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(75, 155, 255, 0.68)';
+            ctx.shadowColor = 'rgba(50, 130, 255, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(endX, cy);
+            ctx.bezierCurveTo(w * 0.25, cy + 6, w * 0.52, cy + 48, rightX, h * 0.89);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function animate(timestamp) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawAmbient();
+
+            if (!lightParticle || !lightParticle.active) {
+                if (timestamp - lastSpawnTime >= spawnInterval || !lightParticle) {
+                    lightParticle = new LightParticle();
+                    lastSpawnTime = timestamp;
+                }
+            }
+
+            drawCurves();
+
+            if (lightParticle) {
+                lightParticle.drawAxisResidual();
+                lightParticle.update();
+                lightParticle.draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
