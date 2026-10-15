@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mystical Time Flow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
         body, html {
             margin: 0;
@@ -56,7 +57,7 @@
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const timeString = `${hours}:${minutes}`;
 
-            ctx.font = 'bold 52px "Courier New", monospace';
+            ctx.font = '700 52px "Orbitron", monospace';
             const textWidth = ctx.measureText(timeString).width;
             const rightEdge = centerX + textWidth / 2;
 
@@ -78,7 +79,7 @@
                 this.displayDuration = 50;
                 this.displayCenterX = canvas.width / 2;
                 this.trail = [];
-                this.lineStartX = canvas.width; // 右端。光が入ってから描画開始
+                this.lineStartX = canvas.width;
             }
 
             update() {
@@ -164,7 +165,7 @@
                     ctx.save();
                     ctx.globalAlpha = alpha;
 
-                    ctx.font = 'bold 52px "Courier New", monospace';
+                    ctx.font = '700 52px "Orbitron", monospace';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
 
@@ -196,7 +197,7 @@
             }
 
             drawAxisResidual() {
-                if (!this.active || this.x >= this.lineStartX) return; // 光が右端に入るまで描画しない
+                if (!this.active || this.x >= this.lineStartX) return;
 
                 const cy = canvas.height / 2;
                 const endX = 0;
@@ -245,7 +246,7 @@
             const h = canvas.height;
             const cy = h / 2;
             const endX = 0;
-            const rightX = w; // 右端に完全一致
+            const rightX = w;
 
             ctx.save();
 
