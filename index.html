@@ -2,29 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mystical Clock">
+    <meta name="theme-color" content="#040406">
     <title>Mystical Time Flow</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: radial-gradient(ellipse at center, #090912 0%, #040406 75%);
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: #040406; font-family: 'Helvetica Neue', Arial, sans-serif;
+            -webkit-user-select: none; user-select: none;
         }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+        canvas { display: block; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
@@ -40,39 +35,34 @@
         const spawnInterval = 5000;
         let lightParticle = null;
 
-        const ambientParticles = [];
-        for (let i = 0; i < 50; i++) {
-            ambientParticles.push({
-                x: Math.random() * canvas.width,
+        // 右側（未来）の粒子を多めに
+        const futureParticles = [];
+        for (let i = 0; i < 60; i++) {
+            futureParticles.push({
+                x: canvas.width * 0.5 + Math.random() * canvas.width * 0.55,
                 y: Math.random() * canvas.height,
-                size: Math.random() * 1.4 + 0.4,
-                speed: Math.random() * 0.25 + 0.08,
-                alpha: Math.random() * 0.35 + 0.08
+                size: Math.random() * 2.2 + 0.5,
+                speed: Math.random() * 0.9 + 0.3,
+                alpha: Math.random() * 0.55 + 0.15,
+                drift: (Math.random() - 0.5) * 0.6
             });
         }
 
         function getTimeInfo(centerX) {
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const timeString = `${hours}:${minutes}`;
-
+            const timeString = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             ctx.font = '700 52px "Orbitron", monospace';
             const textWidth = ctx.measureText(timeString).width;
-            const rightEdge = centerX + textWidth / 2;
-
-            return { timeString, textWidth, rightEdge };
+            return { timeString, textWidth, rightEdge: centerX + textWidth / 2 };
         }
 
         class LightParticle {
-            constructor() {
-                this.reset();
-            }
+            constructor() { this.reset(); }
 
             reset() {
-                this.x = canvas.width + 100;
+                this.x = canvas.width + 110;
                 this.y = canvas.height / 2;
-                this.speed = 3.2;
+                this.speed = 3.1;
                 this.active = true;
                 this.state = 'traveling';
                 this.timeDisplayTimer = 0;
@@ -84,11 +74,9 @@
 
             update() {
                 if (!this.active) return;
-
                 this.x -= this.speed;
-
-                this.trail.push({ x: this.x, alpha: 1 });
-                if (this.trail.length > 22) this.trail.shift();
+                this.trail.push({ x: this.x });
+                if (this.trail.length > 20) this.trail.shift();
 
                 if (this.state === 'traveling') {
                     const info = getTimeInfo(this.displayCenterX);
@@ -98,143 +86,118 @@
                     }
                 } else if (this.state === 'showingTime') {
                     this.timeDisplayTimer--;
-                    if (this.timeDisplayTimer <= 0) {
-                        this.state = 'traveling';
-                    }
+                    if (this.timeDisplayTimer <= 0) this.state = 'traveling';
                 }
-
-                if (this.x < -150) {
-                    this.active = false;
-                }
+                if (this.x < -150) this.active = false;
             }
 
             draw() {
                 if (!this.active) return;
-
                 const cy = canvas.height / 2;
 
                 this.trail.forEach((t, i) => {
-                    const ratio = i / this.trail.length;
-                    const a = ratio * 0.28;
-                    ctx.fillStyle = `rgba(255, 190, 50, ${a})`;
+                    const a = (i / this.trail.length) * 0.3;
+                    ctx.fillStyle = `rgba(255, 200, 50, ${a})`;
                     ctx.beginPath();
-                    ctx.arc(t.x, cy, 5.5 - ratio * 2.5, 0, Math.PI * 2);
+                    ctx.arc(t.x, cy, 5.2 - i * 0.14, 0, Math.PI * 2);
                     ctx.fill();
                 });
 
-                const gradient = ctx.createRadialGradient(this.x, cy, 0, this.x, cy, 55);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                gradient.addColorStop(0.18, 'rgba(255, 235, 90, 0.92)');
-                gradient.addColorStop(0.42, 'rgba(255, 170, 30, 0.45)');
-                gradient.addColorStop(0.72, 'rgba(255, 110, 10, 0.12)');
-                gradient.addColorStop(1, 'rgba(255, 80, 0, 0)');
-
-                ctx.save();
-                ctx.fillStyle = gradient;
+                const g = ctx.createRadialGradient(this.x, cy, 0, this.x, cy, 58);
+                g.addColorStop(0, 'rgba(255,255,255,1)');
+                g.addColorStop(0.16, 'rgba(255,235,100,0.95)');
+                g.addColorStop(0.42, 'rgba(255,165,25,0.42)');
+                g.addColorStop(1, 'rgba(255,90,0,0)');
+                ctx.fillStyle = g;
                 ctx.beginPath();
-                ctx.arc(this.x, cy, 55, 0, Math.PI * 2);
+                ctx.arc(this.x, cy, 58, 0, Math.PI * 2);
                 ctx.fill();
-
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = '#fff';
                 ctx.beginPath();
                 ctx.arc(this.x, cy, 4.5, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.restore();
 
                 if (this.state === 'showingTime' && this.timeDisplayTimer > 0) {
                     const info = getTimeInfo(this.displayCenterX);
-                    const { timeString, textWidth } = info;
-
-                    const fadeInFrames = 12;
-                    const fadeOutFrames = 28;
+                    const fadeOutFrames = 30;
                     let alpha = 1;
                     let blurExtra = 0;
-
-                    const elapsed = this.displayDuration - this.timeDisplayTimer;
-
-                    if (elapsed < fadeInFrames) {
-                        const t = elapsed / fadeInFrames;
-                        alpha = 1 - Math.pow(1 - t, 2);
-                    } else if (this.timeDisplayTimer < fadeOutFrames) {
+                    if (this.timeDisplayTimer < fadeOutFrames) {
                         const t = this.timeDisplayTimer / fadeOutFrames;
-                        alpha = t * t * t * (t * (t * 6 - 15) + 10);
-                        blurExtra = Math.pow(1 - alpha, 1.4) * 28;
+                        alpha = t * t * (3 - 2 * t);
+                        blurExtra = (1 - alpha) * 18;
                     }
                     alpha = Math.max(0, Math.min(1, alpha));
 
                     ctx.save();
                     ctx.globalAlpha = alpha;
-
                     ctx.font = '700 52px "Orbitron", monospace';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-
-                    ctx.shadowColor = `rgba(255, 215, 90, ${0.82 * alpha})`;
-                    ctx.shadowBlur = 20 + blurExtra * 0.75;
-
-                    const plateGrad = ctx.createRadialGradient(this.displayCenterX, cy, 0, this.displayCenterX, cy, textWidth * 0.65);
-                    plateGrad.addColorStop(0, `rgba(18, 14, 28, ${0.42 * alpha})`);
-                    plateGrad.addColorStop(0.7, `rgba(12, 10, 20, ${0.15 * alpha})`);
-                    plateGrad.addColorStop(1, 'rgba(8, 8, 16, 0)');
-                    ctx.fillStyle = plateGrad;
-                    ctx.fillRect(this.displayCenterX - textWidth / 2 - 28, cy - 40, textWidth + 56, 80);
-
-                    const textGradient = ctx.createLinearGradient(this.displayCenterX, cy - 26, this.displayCenterX, cy + 26);
-                    textGradient.addColorStop(0, '#ffffff');
-                    textGradient.addColorStop(0.4, '#ffefb0');
-                    textGradient.addColorStop(1, '#ffc050');
-                    ctx.fillStyle = textGradient;
-                    ctx.fillText(timeString, this.displayCenterX, cy);
-
-                    if (blurExtra > 1) {
-                        ctx.shadowBlur = 8 + blurExtra;
-                        ctx.shadowColor = `rgba(255, 235, 160, ${0.32 * alpha})`;
-                        ctx.fillText(timeString, this.displayCenterX, cy);
-                    }
-
+                    ctx.shadowColor = `rgba(255,210,70,${0.85 * alpha})`;
+                    ctx.shadowBlur = 20 + blurExtra;
+                    ctx.fillStyle = '#fff6d0';
+                    ctx.fillText(info.timeString, this.displayCenterX, cy);
                     ctx.restore();
                 }
             }
 
             drawAxisResidual() {
                 if (!this.active || this.x >= this.lineStartX) return;
-
                 const cy = canvas.height / 2;
-                const endX = 0;
-                const lineEndX = Math.max(endX, this.x);
+                const lineEndX = Math.max(0, this.x);
+                const w = canvas.width;
 
                 ctx.save();
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
-                ctx.lineWidth = 3.2;
-                ctx.shadowColor = 'rgba(255, 255, 255, 0.45)';
-                ctx.shadowBlur = 10;
-
+                // 左側ほど落ち着いた色・弱めのグロー
+                const progress = 1 - (lineEndX / w);
+                const alpha = 0.45 + progress * 0.4;
+                ctx.strokeStyle = `rgba(${180 + progress * 40}, ${180 + progress * 30}, ${190 + progress * 20}, ${alpha})`;
+                ctx.lineWidth = 3.4;
+                ctx.shadowColor = `rgba(160, 170, 200, ${0.2 + progress * 0.25})`;
+                ctx.shadowBlur = 6 + progress * 4;
                 ctx.beginPath();
                 ctx.moveTo(this.lineStartX, cy);
                 ctx.lineTo(lineEndX, cy);
                 ctx.stroke();
 
-                if (lineEndX <= endX + 30) {
+                if (lineEndX < 30) {
                     ctx.lineWidth = 2.8;
                     ctx.beginPath();
-                    ctx.moveTo(endX + 26, cy - 13);
-                    ctx.lineTo(endX, cy);
-                    ctx.lineTo(endX + 26, cy + 13);
+                    ctx.moveTo(26, cy - 12);
+                    ctx.lineTo(0, cy);
+                    ctx.lineTo(26, cy + 12);
                     ctx.stroke();
                 }
-
                 ctx.restore();
             }
         }
 
-        function drawAmbient() {
-            ambientParticles.forEach(p => {
-                p.y -= p.speed;
-                if (p.y < -8) {
-                    p.y = canvas.height + 8;
-                    p.x = Math.random() * canvas.width;
+        function drawFutureSide() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // 右側の強い青みがかった光の領域
+            ctx.save();
+            const rightGrad = ctx.createLinearGradient(w * 0.45, 0, w, 0);
+            rightGrad.addColorStop(0, 'rgba(20, 30, 60, 0)');
+            rightGrad.addColorStop(0.6, 'rgba(30, 50, 90, 0.22)');
+            rightGrad.addColorStop(1, 'rgba(40, 70, 120, 0.35)');
+            ctx.fillStyle = rightGrad;
+            ctx.fillRect(w * 0.4, 0, w * 0.6, h);
+            ctx.restore();
+
+            // 右側の粒子（多め・明るめ）
+            futureParticles.forEach(p => {
+                p.x -= p.speed;
+                p.y += p.drift;
+                if (p.x < w * 0.42) {
+                    p.x = w + Math.random() * 50;
+                    p.y = Math.random() * h;
                 }
-                ctx.fillStyle = `rgba(170, 195, 255, ${p.alpha * 0.85})`;
+                if (p.y < 0 || p.y > h) p.drift *= -1;
+
+                ctx.fillStyle = `rgba(140, 180, 255, ${p.alpha})`;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -242,56 +205,46 @@
         }
 
         function drawCurves() {
-            const w = canvas.width;
-            const h = canvas.height;
-            const cy = h / 2;
-            const endX = 0;
-            const rightX = w;
-
+            const w = canvas.width, h = canvas.height, cy = h / 2;
             ctx.save();
-
-            ctx.strokeStyle = 'rgba(255, 75, 75, 0.68)';
-            ctx.lineWidth = 2.1;
-            ctx.shadowColor = 'rgba(255, 50, 50, 0.4)';
-            ctx.shadowBlur = 5;
+            ctx.lineWidth = 2.2;
+            // 右側を明るく
+            ctx.strokeStyle = 'rgba(255, 100, 100, 0.75)';
+            ctx.shadowColor = 'rgba(255, 60, 60, 0.4)';
+            ctx.shadowBlur = 6;
             ctx.beginPath();
-            ctx.moveTo(endX, cy);
-            ctx.bezierCurveTo(w * 0.25, cy - 6, w * 0.52, cy - 48, rightX, h * 0.11);
+            ctx.moveTo(0, cy);
+            ctx.bezierCurveTo(w * 0.22, cy - 10, w * 0.5, cy - 55, w, h * 0.15);
             ctx.stroke();
 
-            ctx.strokeStyle = 'rgba(75, 155, 255, 0.68)';
-            ctx.shadowColor = 'rgba(50, 130, 255, 0.4)';
+            ctx.strokeStyle = 'rgba(100, 170, 255, 0.75)';
+            ctx.shadowColor = 'rgba(60, 130, 255, 0.4)';
             ctx.beginPath();
-            ctx.moveTo(endX, cy);
-            ctx.bezierCurveTo(w * 0.25, cy + 6, w * 0.52, cy + 48, rightX, h * 0.89);
+            ctx.moveTo(0, cy);
+            ctx.bezierCurveTo(w * 0.22, cy + 10, w * 0.5, cy + 55, w, h * 0.85);
             ctx.stroke();
-
             ctx.restore();
         }
 
-        function animate(timestamp) {
+        function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            drawAmbient();
-
-            if (!lightParticle || !lightParticle.active) {
-                if (timestamp - lastSpawnTime >= spawnInterval || !lightParticle) {
-                    lightParticle = new LightParticle();
-                    lastSpawnTime = timestamp;
-                }
-            }
-
+            drawFutureSide();
             drawCurves();
 
+            if (!lightParticle || !lightParticle.active) {
+                if (performance.now() - lastSpawnTime > spawnInterval || !lightParticle) {
+                    lightParticle = new LightParticle();
+                    lastSpawnTime = performance.now();
+                }
+            }
             if (lightParticle) {
                 lightParticle.drawAxisResidual();
                 lightParticle.update();
                 lightParticle.draw();
             }
-
             requestAnimationFrame(animate);
         }
-
         requestAnimationFrame(animate);
     </script>
 </body>
